@@ -13,7 +13,7 @@
                 <sallowspecific>0</sallowspecific>
                 <cutoff_cost>50</cutoff_cost>
                 <model>SM\Shipping\Model\Carrier\RetailShipping</model>
-                <name>Connect-POS</name>
+                <name>ConnectPOS</name>
                 <title>Store Shipping</title>
                 <specificerrmsg>This shipping method is not available. To use this shipping method, please contact us.</specificerrmsg>
             </retailshipping>
@@ -22,8 +22,8 @@
                 <sallowspecific>0</sallowspecific>
                 <cutoff_cost>50</cutoff_cost>
                 <model>SM\Shipping\Model\Carrier\RetailStorePickUp</model>
-                <name>Retail</name>
-                <title>Retail Store Pick Up</title>
+                <name>ConnectPOS</name>
+                <title>Store Pick Up</title>
                 <specificerrmsg>This shipping method is not available. To use this shipping method, please contact us.</specificerrmsg>
             </smstorepickup>
         </carriers>
