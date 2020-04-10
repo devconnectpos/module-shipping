@@ -8,19 +8,18 @@
 
 namespace SM\Shipping\Repositories;
 
-use Magento\Catalog\Model\Product;
-use Magento\Customer\Api\CustomerRepositoryInterface;
-use Magento\Customer\Model\CustomerFactory;
+use Magento\Catalog\Api\ProductRepositoryInterface;
 use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Framework\App\RequestInterface;
 use Magento\Framework\ObjectManagerInterface;
-use Magento\Quote\Model\QuoteFactory;
+use Magento\Quote\Api\CartManagementInterface;
+use Magento\Quote\Api\CartRepositoryInterface;
+use Magento\Quote\Api\ShipmentEstimationInterface;
 use Magento\Shipping\Model\Config;
-use Magento\Shipping\Model\Shipping;
 use Magento\Store\Model\ScopeInterface;
 use Magento\Store\Model\StoreManagerInterface;
 use SM\Core\Api\Data\ShippingMethod;
-use SM\Sales\Repositories\OrderManagement;
+use SM\Shipping\Helper\Shipping as ShippingHelper;
 use SM\XRetail\Helper\DataConfig;
 use SM\XRetail\Repositories\Contract\ServiceAbstract;
 
@@ -32,61 +31,100 @@ class ShippingManagement extends ServiceAbstract
     protected $shippingConfig;
 
     protected $objectManager;
-
-    /**
-     * ShippingManagement constructor.
-     *
-     * @param \Magento\Framework\App\RequestInterface    $requestInterface
-     * @param \SM\XRetail\Helper\DataConfig              $dataConfig
-     * @param \Magento\Store\Model\StoreManagerInterface $storeManager
-     * @param ScopeConfigInterface                       $scopeConfig
-     * @param \Magento\Shipping\Model\Config             $shippingConfig
-     * @param ObjectManagerInterface                     $objectManager
-     */
+	/**
+	 * @var ShippingHelper
+	 */
+	private $shippingHelper;
+	/**
+	 * @var CartManagementInterface
+	 */
+	private $cartManagement;
+	/**
+	 * @var CartRepositoryInterface
+	 */
+	private $cartRepository;
+	/**
+	 * @var ProductRepositoryInterface
+	 */
+	private $productRepository;
+	/**
+	 * @var ShipmentEstimationInterface
+	 */
+	private $shipmentEstimation;
+	
+	/**
+	 * ShippingManagement constructor.
+	 *
+	 * @param \Magento\Framework\App\RequestInterface $requestInterface
+	 * @param \SM\XRetail\Helper\DataConfig $dataConfig
+	 * @param \Magento\Store\Model\StoreManagerInterface $storeManager
+	 * @param ScopeConfigInterface $scopeConfig
+	 * @param \Magento\Shipping\Model\Config $shippingConfig
+	 * @param ObjectManagerInterface $objectManager
+	 * @param ShippingHelper $shippingHelper
+	 * @param CartManagementInterface $cartManagement
+	 * @param CartRepositoryInterface $cartRepository
+	 * @param ProductRepositoryInterface $productRepository
+	 * @param ShipmentEstimationInterface $shipmentEstimation
+	 */
     public function __construct(
-        RequestInterface $requestInterface,
-        DataConfig $dataConfig,
-        StoreManagerInterface $storeManager,
-        ScopeConfigInterface $scopeConfig,
-        Config $shippingConfig,
-        ObjectManagerInterface $objectManager
+	    RequestInterface $requestInterface,
+	    DataConfig $dataConfig,
+	    StoreManagerInterface $storeManager,
+	    ScopeConfigInterface $scopeConfig,
+	    Config $shippingConfig,
+	    ObjectManagerInterface $objectManager,
+	    ShippingHelper $shippingHelper,
+		CartManagementInterface $cartManagement,
+		CartRepositoryInterface $cartRepository,
+		ProductRepositoryInterface $productRepository,
+		ShipmentEstimationInterface $shipmentEstimation
     ) {
         $this->scopeConfig = $scopeConfig;
         $this->shippingConfig = $shippingConfig;
-        parent::__construct($requestInterface, $dataConfig, $storeManager);
-        $this->objectManager = $objectManager;
+	    $this->objectManager = $objectManager;
+	    $this->shippingHelper = $shippingHelper;
+	    $this->cartManagement = $cartManagement;
+	    $this->cartRepository = $cartRepository;
+	    $this->productRepository = $productRepository;
+	    $this->shipmentEstimation = $shipmentEstimation;
+	    parent::__construct($requestInterface, $dataConfig, $storeManager);
     }
-
-    /**
-     * @return array
-     * @throws \ReflectionException
-     */
+	
+	/**
+	 * @return array
+	 * @throws \ReflectionException
+	 * @throws \Exception
+	 */
     public function getShippingMethods()
     {
         $methods = array();
         $activeCarriers = $this->shippingConfig->getAllCarriers();
         foreach ($activeCarriers as $carrierCode => $carrierModel) {
-            if (in_array($carrierCode, OrderManagement::getAllowedShippingMethods())) {
-                $options = array();
-                if ($carrierMethods = $carrierModel->getAllowedMethods()) {
-                    foreach ($carrierMethods as $methodCode => $method) {
-                        $code= $carrierCode.'_'.$methodCode;
-                        $options[]=array('value'=>$code,'label'=>$method);
-
-                    }
-                    $carrierTitle = $this->scopeConfig->getValue(
-                        'carriers/' . $carrierCode . '/title',
-                        ScopeInterface::SCOPE_STORE
-                    );
-
-                    $shipping_method = new ShippingMethod();
-                    $shipping_method->setData('code', $carrierCode);
-                    $shipping_method->setData('label', $carrierTitle);
-                    $shipping_method->setData('is_active', $carrierModel->getConfigData('active'));
-                    $shipping_method->setData('magento_active', $carrierModel->getConfigData('active'));
-                    $shipping_method->setData('showmethod', $carrierModel->getConfigData('showmethod'));
-                    $methods[] = $shipping_method;
-                }
+            if (in_array($carrierCode, $this->shippingHelper->getAllowedShippingMethods())) {
+	            $carrierTitle = $this->scopeConfig->getValue(
+	                'carriers/' . $carrierCode . '/title',
+	                ScopeInterface::SCOPE_STORE
+	            );
+	            
+	            if (!$carrierTitle) {
+	            	$carrierTitle = $this->scopeConfig->getValue(
+			            'carriers/' . $carrierCode . '/name',
+			            ScopeInterface::SCOPE_STORE
+		            );
+	            }
+	
+	            if (!$carrierTitle) {
+		            $carrierTitle = $carrierCode;
+	            }
+	
+	            $shipping_method = new ShippingMethod();
+	            $shipping_method->setData('code', $carrierCode);
+	            $shipping_method->setData('label', $carrierTitle);
+	            $shipping_method->setData('is_active', $carrierModel->getConfigData('active'));
+	            $shipping_method->setData('magento_active', $carrierModel->getConfigData('active'));
+	            $shipping_method->setData('showmethod', $carrierModel->getConfigData('showmethod'));
+	            $methods[] = $shipping_method;
             }
         }
         if ($this->getSearchCriteria()->getData('currentPage') > 1) {
@@ -97,7 +135,7 @@ class ShippingManagement extends ServiceAbstract
             ->setSearchCriteria($this->getSearchCriteria())
             ->setItems($methods)
             ->setTotalCount(count($methods))
-            ->setMessageError(OrderManagement::$MESSAGE_ERROR)
+            ->setMessageError([])
             ->getOutput();
     }
 
@@ -123,5 +161,63 @@ class ShippingManagement extends ServiceAbstract
             ->setTotalCount(1)
             ->setLastPageNumber(1)
             ->getOutput();
+    }
+	
+	/**
+	 * @return array
+	 * @throws \ReflectionException
+	 * @throws \Exception
+	 */
+	public function getMultiShippingRates()
+    {
+    	$data = $this->getRequest()->getParams();
+    	
+    	if (!isset($data['shipments'])) {
+		    return $this->getSearchResult()
+			    ->setItems([])
+			    ->setTotalCount(0)
+			    ->setLastPageNumber(1)
+			    ->getOutput();
+	    };
+	
+    	$shipments = [];
+	    foreach ($data['shipments'] as $shipment) {
+		    /** @var \Magento\Quote\Model\Quote $quote */
+	    	$quote = $this->cartRepository->get($this->cartManagement->createEmptyCart());
+		    $shippingAddress = $this->objectManager->create(
+			    \Magento\Quote\Model\Quote\Address::class
+		    )->setData(
+			    $shipment['shipping_address']
+		    )->setAddressType(
+			    \Magento\Quote\Model\Quote\Address::TYPE_SHIPPING
+		    );
+		    $quote->setShippingAddress($shippingAddress);
+		    foreach ($shipment['items'] as $config) {
+		    	$config['qty'] = (double)$config['qty'];
+			    $quote->addProduct($this->productRepository->getById($config['product_id']), new \Magento\Framework\DataObject($config));
+		    }
+		    $quote->getShippingAddress()->setLimitCarrier($shipment['carrier']);
+		    $this->cartRepository->save($quote->collectTotals());
+			$this->shipmentEstimation->estimateByExtendedAddress($quote->getId(), $quote->getShippingAddress());
+
+		    $rates = $quote->getShippingAddress()->getGroupedAllShippingRates();
+		    
+		    $arr = [];
+		    foreach ($rates as $rate) {
+			    foreach ($rate as $item) {
+				    $rateData = $item->getData();
+				    $arr[] = $rateData;
+			    }
+		    }
+			$shipment['shipping_rate'] = $arr;
+		    $shipments[] = $shipment;
+		    $this->cartRepository->delete($quote);
+    	}
+	
+	    return $this->getSearchResult()
+		    ->setItems($shipments)
+		    ->setTotalCount(count($shipments))
+		    ->setMessageError([])
+		    ->getOutput();
     }
 }

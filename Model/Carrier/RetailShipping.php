@@ -25,6 +25,7 @@ class RetailShipping extends AbstractCarrier implements CarrierInterface
 {
 
     const RETAIL_SHIPPING_AMOUNT_KEY = 'retail_shipping_amount';
+    const METHOD_CODE = 'retailshipping';
     /**
      * @var string
      */
