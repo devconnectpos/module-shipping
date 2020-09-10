@@ -5,4 +5,8 @@
     <type name="Magento\Checkout\Model\ShippingInformationManagement">
         <plugin name="inpost-address" type="SM\Shipping\Plugin\Quote\SaveOutletPlugin" sortOrder="1" disabled="false"/>
     </type>
+
+    <type name="Magecomp\Customshipping\Plugin\Quote\Address\Total\ShippingPlugin">
+        <plugin name="connectpos-integrate-customshipping" type="SM\Shipping\Plugin\CustomShipping" sortOrder="1" disabled="false"/>
+    </type>
 </config>
