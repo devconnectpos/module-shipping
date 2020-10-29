@@ -26,7 +26,7 @@ class Shipping
      */
     public function getAllowedShippingMethods()
     {
-        $allowedMethods = ['smstorepickup', 'dhl', 'ups', 'usps', 'fedex', 'flatrate', 'tablerate'];
+        $allowedMethods = ['retailshipping', 'smstorepickup', 'dhl', 'ups', 'usps', 'fedex', 'flatrate', 'tablerate'];
 
         if ($this->integrateHelper->isIntegrateMageShip()) {
 	        $shipperCarrier = $this->objectManager->create('Maurisource\MageShip\Model\Carrier');
