@@ -19,7 +19,9 @@ use Magento\Shipping\Model\Config;
 use Magento\Store\Model\ScopeInterface;
 use Magento\Store\Model\StoreManagerInterface;
 use SM\Core\Api\Data\ShippingMethod;
+use SM\Core\Api\Data\ShippingMethodFactory;
 use SM\Shipping\Helper\Shipping as ShippingHelper;
+use SM\Shipping\Model\ShippingCarrierAdditionalDataFactory;
 use SM\XRetail\Helper\DataConfig;
 use SM\XRetail\Repositories\Contract\ServiceAbstract;
 
@@ -31,6 +33,14 @@ class ShippingManagement extends ServiceAbstract
     protected $shippingConfig;
 
     protected $objectManager;
+    /**
+     * @var ShippingMethodFactory
+     */
+    protected $shippingMethodFactory;
+    /**
+     * @var ShippingCarrierAdditionalDataFactory
+     */
+    protected $carrierAdditionalDataFactory;
     /**
      * @var ShippingHelper
      */
@@ -66,6 +76,8 @@ class ShippingManagement extends ServiceAbstract
      * @param CartRepositoryInterface $cartRepository
      * @param ProductRepositoryInterface $productRepository
      * @param ShipmentEstimationInterface $shipmentEstimation
+     * @param ShippingMethodFactory $shippingMethodFactory
+     * @param ShippingCarrierAdditionalDataFactory $carrierAdditionalDataFactory
      */
     public function __construct(
         RequestInterface $requestInterface,
@@ -78,7 +90,9 @@ class ShippingManagement extends ServiceAbstract
         CartManagementInterface $cartManagement,
         CartRepositoryInterface $cartRepository,
         ProductRepositoryInterface $productRepository,
-        ShipmentEstimationInterface $shipmentEstimation
+        ShipmentEstimationInterface $shipmentEstimation,
+        ShippingMethodFactory $shippingMethodFactory,
+        ShippingCarrierAdditionalDataFactory $carrierAdditionalDataFactory
     ) {
         $this->scopeConfig = $scopeConfig;
         $this->shippingConfig = $shippingConfig;
@@ -89,6 +103,8 @@ class ShippingManagement extends ServiceAbstract
         $this->productRepository = $productRepository;
         $this->shipmentEstimation = $shipmentEstimation;
         parent::__construct($requestInterface, $dataConfig, $storeManager);
+        $this->shippingMethodFactory = $shippingMethodFactory;
+        $this->carrierAdditionalDataFactory = $carrierAdditionalDataFactory;
     }
     
     /**
@@ -118,13 +134,24 @@ class ShippingManagement extends ServiceAbstract
                     $carrierTitle = $carrierCode;
                 }
     
-                $shipping_method = new ShippingMethod();
-                $shipping_method->setData('code', $carrierCode);
-                $shipping_method->setData('label', $carrierTitle);
-                $shipping_method->setData('is_active', $carrierModel->getConfigData('active'));
-                $shipping_method->setData('magento_active', $carrierModel->getConfigData('active'));
-                $shipping_method->setData('showmethod', $carrierModel->getConfigData('showmethod'));
-                $methods[] = $shipping_method;
+                $shippingMethod = $this->shippingMethodFactory->create();
+                $shippingMethod->setData('code', $carrierCode);
+                $shippingMethod->setData('label', $carrierTitle);
+                $shippingMethod->setData('is_active', $carrierModel->getConfigData('active'));
+                $shippingMethod->setData('magento_active', $carrierModel->getConfigData('active'));
+                
+                if ($carrierCode === 'matrixrate') {
+                    $additionalDataModel = $this->carrierAdditionalDataFactory->create()
+                        ->loadByCarrierCode($carrierCode);
+                    if (!$additionalDataModel->getId()) {
+                        $additionalDataModel->setCarrierCode($carrierCode);
+                        $additionalDataModel->setAdditionalData(['is_require_address' => false])->save();
+                    }
+
+                    $shippingMethod->setData('additional_data', $additionalDataModel->getAdditionalData());
+                }
+
+                $methods[] = $shippingMethod;
             }
         }
         if ($this->getSearchCriteria()->getData('currentPage') > 1) {
@@ -148,12 +175,20 @@ class ShippingManagement extends ServiceAbstract
         $data = $this->getRequest()->getParams();
         $items = [];
         foreach ($data['methods'] as $method) {
-            $item = new ShippingMethod();
+            $item = $this->shippingMethodFactory->create();
             $item->setData('code', $method['code']);
             $item->setData('label', $method['label']);
             $item->setData('is_active', $method['is_active']);
             $item->setData('magento_active', $method['magento_active']);
-            $item->setData('showmethod', $method['showmethod']);
+            
+            if (isset($method['additional_data'])) {
+                $item->setData('additional_data', $method['additional_data']);
+
+                $additionalDataModel = $this->carrierAdditionalDataFactory->create()
+                    ->loadByCarrierCode($method['code']);
+                $additionalDataModel->setAdditionalData($method['additional_data'])->save();
+            }
+
             $items[] = $item;
         }
         return $this->getSearchResult()
