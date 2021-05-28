@@ -23,6 +23,7 @@ class SaveOutletPlugin
     ) {
         $shippingAddress = $addressInformation->getData('shipping_address');
         if ($addressInformation->getData('shipping_method_code') == RetailStorePickUp::METHOD_CODE
+            && $shippingAddress->getExtensionAttributes()
             && $shippingAddress->getExtensionAttributes()->getOutletAddress()) {
             $quote = $this->quoteRepository->getActive($cartId);
             $quote->setOutletId($shippingAddress->getExtensionAttributes()->getOutletAddress());
