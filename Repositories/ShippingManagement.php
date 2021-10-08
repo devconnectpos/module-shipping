@@ -61,23 +61,23 @@ class ShippingManagement extends ServiceAbstract
      * @var ShipmentEstimationInterface
      */
     private $shipmentEstimation;
-    
+
     /**
      * ShippingManagement constructor.
      *
-     * @param \Magento\Framework\App\RequestInterface $requestInterface
-     * @param \SM\XRetail\Helper\DataConfig $dataConfig
+     * @param \Magento\Framework\App\RequestInterface    $requestInterface
+     * @param \SM\XRetail\Helper\DataConfig              $dataConfig
      * @param \Magento\Store\Model\StoreManagerInterface $storeManager
-     * @param ScopeConfigInterface $scopeConfig
-     * @param \Magento\Shipping\Model\Config $shippingConfig
-     * @param ObjectManagerInterface $objectManager
-     * @param ShippingHelper $shippingHelper
-     * @param CartManagementInterface $cartManagement
-     * @param CartRepositoryInterface $cartRepository
-     * @param ProductRepositoryInterface $productRepository
-     * @param ShipmentEstimationInterface $shipmentEstimation
-     * @param ShippingMethodFactory $shippingMethodFactory
-     * @param ShippingCarrierAdditionalDataFactory $carrierAdditionalDataFactory
+     * @param ScopeConfigInterface                       $scopeConfig
+     * @param \Magento\Shipping\Model\Config             $shippingConfig
+     * @param ObjectManagerInterface                     $objectManager
+     * @param ShippingHelper                             $shippingHelper
+     * @param CartManagementInterface                    $cartManagement
+     * @param CartRepositoryInterface                    $cartRepository
+     * @param ProductRepositoryInterface                 $productRepository
+     * @param ShipmentEstimationInterface                $shipmentEstimation
+     * @param ShippingMethodFactory                      $shippingMethodFactory
+     * @param ShippingCarrierAdditionalDataFactory       $carrierAdditionalDataFactory
      */
     public function __construct(
         RequestInterface $requestInterface,
@@ -106,7 +106,7 @@ class ShippingManagement extends ServiceAbstract
         $this->shippingMethodFactory = $shippingMethodFactory;
         $this->carrierAdditionalDataFactory = $carrierAdditionalDataFactory;
     }
-    
+
     /**
      * @return array
      * @throws \ReflectionException
@@ -119,38 +119,49 @@ class ShippingManagement extends ServiceAbstract
         foreach ($activeCarriers as $carrierCode => $carrierModel) {
             if (in_array($carrierCode, $this->shippingHelper->getAllowedShippingMethods())) {
                 $carrierTitle = $this->scopeConfig->getValue(
-                    'carriers/' . $carrierCode . '/title',
+                    'carriers/'.$carrierCode.'/title',
                     ScopeInterface::SCOPE_STORE
                 );
-                
+
                 if (!$carrierTitle) {
                     $carrierTitle = $this->scopeConfig->getValue(
-                        'carriers/' . $carrierCode . '/name',
+                        'carriers/'.$carrierCode.'/name',
                         ScopeInterface::SCOPE_STORE
                     );
                 }
-    
+
                 if (!$carrierTitle) {
                     $carrierTitle = $carrierCode;
                 }
-    
-                $shippingMethod = $this->shippingMethodFactory->create();
-                $shippingMethod->setData('code', $carrierCode);
-                $shippingMethod->setData('label', $carrierTitle);
-                $shippingMethod->setData('is_active', $carrierModel->getConfigData('active'));
-                $shippingMethod->setData('magento_active', $carrierModel->getConfigData('active'));
-                
-                if ($carrierCode === 'matrixrate') {
-                    $additionalDataModel = $this->carrierAdditionalDataFactory->create()
-                        ->loadByCarrierCode($carrierCode);
-                    if (!$additionalDataModel->getId()) {
-                        $additionalDataModel->setCarrierCode($carrierCode);
-                        $additionalDataModel->setAdditionalData(['is_require_address' => false])->save();
-                    }
 
-                    $shippingMethod->setData('additional_data', $additionalDataModel->getAdditionalData());
+                $additionalDataModel = $this->carrierAdditionalDataFactory->create()
+                    ->loadByCarrierCode($carrierCode);
+
+                $additionalData = $additionalDataModel->getAdditionalData();
+                $customLabel = $carrierTitle;
+                $customActiveStatus = $carrierModel->getConfigData('active');
+                $outletId = null;
+                if ($additionalDataModel->getId()) {
+                    $customLabel = $additionalData['label'] ?? $carrierTitle;
+                    $customActiveStatus = $additionalData['is_active'] ?? $carrierModel->getConfigData('active');
+                    $outletId = $additionalData['outlet_id'] ?? null;
                 }
 
+                $shippingMethod = $this->shippingMethodFactory->create();
+                $shippingMethod->setData('code', $carrierCode);
+                $shippingMethod->setData('label', $customLabel);
+                $shippingMethod->setData('is_active', $customActiveStatus);
+                $shippingMethod->setData('magento_active', $carrierModel->getConfigData('active'));
+                $shippingMethod->setData('outlet_id', $outletId);
+
+                if (($carrierCode === 'matrixrate') && !$additionalDataModel->getId()) {
+                    $additionalDataModel->setCarrierCode($carrierCode);
+                    $additionalDataModel->setAdditionalData([
+                        'is_require_address' => false,
+                    ])->save();
+                }
+
+                $shippingMethod->setData('additional_data', $additionalDataModel->getAdditionalData());
                 $methods[] = $shippingMethod;
             }
         }
@@ -180,24 +191,38 @@ class ShippingManagement extends ServiceAbstract
             $item->setData('label', $method['label']);
             $item->setData('is_active', $method['is_active']);
             $item->setData('magento_active', $method['magento_active']);
-            
-            if (isset($method['additional_data'])) {
-                $item->setData('additional_data', $method['additional_data']);
 
-                $additionalDataModel = $this->carrierAdditionalDataFactory->create()
-                    ->loadByCarrierCode($method['code']);
-                $additionalDataModel->setAdditionalData($method['additional_data'])->save();
+            $additionalData = $method['additional_data'] ?? [];
+
+            if (isset($method['is_active'])) {
+                $additionalData['is_active'] = $method['is_active'];
             }
+
+            if (isset($method['label'])) {
+                $additionalData['label'] = $method['label'];
+            }
+
+            if (isset($method['outlet_id'])) {
+                $additionalData['outlet_id'] = $method['outlet_id'];
+            }
+
+            $item->setData('additional_data', $additionalData);
+            $additionalDataModel = $this->carrierAdditionalDataFactory->create()
+                ->loadByCarrierCode($method['code']);
+            $additionalDataModel
+                ->setCarrierCode($method['code'])
+                ->setAdditionalData($additionalData)->save();
 
             $items[] = $item;
         }
+
         return $this->getSearchResult()
             ->setItems($items)
             ->setTotalCount(1)
             ->setLastPageNumber(1)
             ->getOutput();
     }
-    
+
     /**
      * @return array
      * @throws \ReflectionException
@@ -206,7 +231,7 @@ class ShippingManagement extends ServiceAbstract
     public function getMultiShippingRates()
     {
         $data = $this->getRequest()->getParams();
-        
+
         if (!isset($data['shipments'])) {
             return $this->getSearchResult()
                 ->setItems([])
@@ -214,7 +239,7 @@ class ShippingManagement extends ServiceAbstract
                 ->setLastPageNumber(1)
                 ->getOutput();
         };
-    
+
         $shipments = [];
         foreach ($data['shipments'] as $shipment) {
             /** @var \Magento\Quote\Model\Quote $quote */
@@ -236,7 +261,7 @@ class ShippingManagement extends ServiceAbstract
             $this->shipmentEstimation->estimateByExtendedAddress($quote->getId(), $quote->getShippingAddress());
 
             $rates = $quote->getShippingAddress()->getGroupedAllShippingRates();
-            
+
             $arr = [];
             foreach ($rates as $rate) {
                 foreach ($rate as $item) {
@@ -248,7 +273,7 @@ class ShippingManagement extends ServiceAbstract
             $shipments[] = $shipment;
             $this->cartRepository->delete($quote);
         }
-    
+
         return $this->getSearchResult()
             ->setItems($shipments)
             ->setTotalCount(count($shipments))
