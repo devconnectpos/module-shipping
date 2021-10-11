@@ -6,15 +6,33 @@ use Magento\Framework\DB\Ddl\Table;
 use Magento\Framework\Setup\ModuleContextInterface;
 use Magento\Framework\Setup\SchemaSetupInterface;
 use Magento\Framework\Setup\UpgradeSchemaInterface;
+use Symfony\Component\Console\Output\OutputInterface;
 
 class UpgradeSchema implements UpgradeSchemaInterface
 {
-
+    /**
+     * @param SchemaSetupInterface   $setup
+     * @param ModuleContextInterface $context
+     *
+     * @throws \Zend_Db_Exception
+     */
     public function upgrade(SchemaSetupInterface $setup, ModuleContextInterface $context)
     {
         if (version_compare($context->getVersion(), '0.0.2', '<')) {
             $this->addShippingAdditionalDataTable($setup);
         }
+    }
+
+    /**
+     * @param SchemaSetupInterface $setup
+     * @param OutputInterface      $output
+     *
+     * @throws \Zend_Db_Exception
+     */
+    public function execute(SchemaSetupInterface $setup, OutputInterface $output)
+    {
+        $output->writeln('  |__ Add shipping additional data table');
+        $this->addShippingAdditionalDataTable($setup);
     }
 
     /**
