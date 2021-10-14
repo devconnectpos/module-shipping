@@ -25,6 +25,7 @@ class RetailStorePickUp extends AbstractCarrier implements CarrierInterface
      * @var string
      */
     const METHOD_CODE = 'smstorepickup';
+    const METHOD = 'smstorepickup_smstorepickup';
 
     protected $outletCollectionFactory;
     /**

@@ -18,7 +18,7 @@
                 <specificerrmsg>This shipping method is not available. To use this shipping method, please contact us.</specificerrmsg>
             </retailshipping>
             <smstorepickup>
-                <active>1</active>
+                <active>0</active>
                 <sallowspecific>0</sallowspecific>
                 <cutoff_cost>50</cutoff_cost>
                 <model>SM\Shipping\Model\Carrier\RetailStorePickUp</model>
