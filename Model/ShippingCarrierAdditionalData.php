@@ -11,7 +11,7 @@ class ShippingCarrierAdditionalData extends AbstractModel implements ShippingCar
     {
         $this->_init(\SM\Shipping\Model\ResourceModel\ShippingCarrierAdditionalData::class);
     }
-    
+
     /**
      * @param $code
      * @return $this
@@ -21,22 +21,28 @@ class ShippingCarrierAdditionalData extends AbstractModel implements ShippingCar
         $this->load($code, self::CARRIER_CODE);
         return $this;
     }
-    
+
     public function getCarrierCode()
     {
         return $this->getData(self::CARRIER_CODE);
     }
-    
+
     public function setCarrierCode($code)
     {
         return $this->setData(self::CARRIER_CODE, $code);
     }
-    
+
     public function getAdditionalData()
     {
-        return json_decode($this->getData(self::ADDITIONAL_DATA), true);
+        $additionalData = $this->getData(self::ADDITIONAL_DATA);
+
+        if (empty($additionalData)) {
+            return [];
+        }
+
+        return json_decode($additionalData, true);
     }
-    
+
     public function setAdditionalData($data)
     {
         if (is_array($data)) {
