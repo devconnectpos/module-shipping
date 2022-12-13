@@ -25,7 +25,7 @@ endif; ?>
         <span class="title"><?= $block->escapeHtml(__('Shipping &amp; Handling Information')) ?></span>
     </div>
     <div class="admin__page-section-item-content">
-        <?php  if ($order->getTracksCollection()->count()): ?>
+        <?php  if ($order->getTracksCollection()->count() && $shippingHelper): ?>
             <p>
                 <a href="#" id="linkId" title="<?= $block->escapeHtmlAttr(__('Track Order')) ?>">
                     <?= $block->escapeHtml(__('Track Order')) ?>
@@ -38,7 +38,7 @@ endif; ?>
                 'a#linkId'
             ) ?>
         <?php endif; ?>
-        <?php if ($order->getShippingDescription()): ?>
+        <?php if ($order->getShippingDescription() && $taxHelper): ?>
             <strong><?= $block->escapeHtml($order->getShippingDescription()) ?></strong>
 
             <?php if ($taxHelper->displayShippingPriceIncludingTax()): ?>
