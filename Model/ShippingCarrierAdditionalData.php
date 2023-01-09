@@ -40,7 +40,7 @@ class ShippingCarrierAdditionalData extends AbstractModel implements ShippingCar
             return [];
         }
 
-        return json_decode($additionalData, true);
+        return json_decode((string)$additionalData, true);
     }
 
     public function setAdditionalData($data)
