@@ -2,7 +2,7 @@
 	"name": "connectpos/module-shipping",
 	"description": "N/A",
 	"type": "magento2-module",
-  "version": "22.12.13",
+  "version": "23.01.09",
 	"license": [
 		"proprietary"
 	],
