@@ -14,12 +14,17 @@ class SaveOutlet implements ObserverInterface
     /**
      * @var LoggerInterface
      */
-    private $logger;
+    protected $logger;
+
     /**
      * @var Order
      */
-    private $order;
-    private $orderRepository;
+    protected $order;
+
+    /**
+     * @var OrderRepositoryInterface
+     */
+    protected $orderRepository;
 
     /**
      * @param LoggerInterface $logger
